@@ -5,105 +5,27 @@ const Handlebars = require('handlebars');
 // In-memory storage for document sessions (use Redis in production)
 const documentSessions = new Map();
 
-// Document templates and office data
-const DOCUMENT_TEMPLATES = {
-  'lost_registration_document': {
-    title: 'Neuer Fahrzeugschein (Verlust)',
-    description: 'Beantragung eines neuen Fahrzeugscheins nach Verlust',
-    documents: [
-      'Personalausweis oder Reisepass (bei Reisepass zusätzlich Meldebescheinigung, max. 3 Monate alt)',
-      'Zulassungsbescheinigung Teil II (Fahrzeugbrief)',
-      'Gültige Hauptuntersuchung (HU)',
-      'Eventuell eidesstattliche Versicherung (falls auch Fahrzeugbrief verloren)'
-    ],
-    cost: 'ca. 12 Euro',
-    paymentMethods: 'Kartenzahlung, Bar bei der Kreiskasse oder Überweisung'
-  },
-  'vehicle_reregistration': {
-    title: 'Fahrzeug ummelden',
-    description: 'Ummeldung eines Fahrzeugs bei Umzug oder Halterwechsel',
-    documents: [
-      'Personalausweis oder Reisepass mit Meldebescheinigung',
-      'Zulassungsbescheinigung Teil I (Fahrzeugschein)',
-      'Zulassungsbescheinigung Teil II (Fahrzeugbrief)',
-      'Gültige Hauptuntersuchung (HU)',
-      'Aktuelle Versicherungsbestätigung (eVB-Nummer)',
-      'Bei Halterwechsel: Kaufvertrag oder Vollmacht'
-    ],
-    cost: 'ca. 25-30 Euro',
-    paymentMethods: 'Kartenzahlung, Bar oder Überweisung'
-  },
-  'new_registration': {
-    title: 'Fahrzeug neu anmelden',
-    description: 'Erstmalige Zulassung eines Fahrzeugs',
-    documents: [
-      'Personalausweis oder Reisepass mit Meldebescheinigung',
-      'COC-Papiere oder Fahrzeugbrief bei Gebrauchtwagen',
-      'Gültige Hauptuntersuchung (HU)',
-      'Aktuelle Versicherungsbestätigung (eVB-Nummer)',
-      'Kaufvertrag oder Rechnung',
-      'Bei Finanzierung: Sicherungsübereignung'
-    ],
-    cost: 'ca. 26-28 Euro + Kennzeichen',
-    paymentMethods: 'Kartenzahlung, Bar oder Überweisung'
-  }
-};
-
-const OFFICE_DATA = {
-  'lörrach': {
-    name: 'KFZ-Zulassungsstelle Lörrach',
-    address: 'Palmstraße 3, 79539 Lörrach',
-    phone: '07621 410-0',
-    hours: {
-      'Mo-Fr': '08:00-12:00',
-      'Di': '13:30-15:30',
-      'Do': '13:30-17:00'
-    },
-    website: 'www.loerrach-landkreis.de'
-  },
-  'berlin': {
-    name: 'Kfz-Zulassungsstelle Berlin',
-    address: 'Puttkamerstraße 16-18, 10958 Berlin',
-    phone: '030 90269-0',
-    hours: {
-      'Mo-Fr': '07:00-15:00',
-      'Do': '07:00-18:00'
-    },
-    website: 'www.berlin.de/zulassung'
-  },
-  'münchen': {
-    name: 'Kfz-Zulassungsstelle München',
-    address: 'Eichstätter Straße 2, 80686 München',
-    phone: '089 233-40000',
-    hours: {
-      'Mo-Fr': '07:30-12:00',
-      'Do': '07:30-17:00'
-    },
-    website: 'www.muenchen.de/zulassung'
-  }
-};
-
 /**
- * Create a document page for a session
+ * Create a personalized document page from extracted conversation content
  */
-async function createDocumentPage({ sessionId, serviceType, officeLocation, createdAt }) {
+async function createDocumentPage({ sessionId, extractedContent, createdAt }) {
   try {
-    // Get document template
-    const template = DOCUMENT_TEMPLATES[serviceType] || DOCUMENT_TEMPLATES['lost_registration_document'];
-    
-    // Get office data
-    const office = OFFICE_DATA[officeLocation.toLowerCase()] || OFFICE_DATA['lörrach'];
-    
     // Load HTML template
-    const templatePath = path.join(__dirname, '../templates/document-page.hbs');
+    const templatePath = path.join(__dirname, '../templates/conversation-document.hbs');
     const templateSource = await fs.readFile(templatePath, 'utf-8');
     const compiledTemplate = Handlebars.compile(templateSource);
     
-    // Prepare template data
+    // Process extracted content for template
     const templateData = {
       sessionId,
-      service: template,
-      office,
+      service: {
+        title: extractedContent.serviceTitle,
+        description: `Basierend auf Ihrem Gespräch vom ${createdAt.toLocaleDateString('de-DE')}`
+      },
+      documents: extractedContent.requiredDocuments,
+      office: extractedContent.officeDetails,
+      cost: extractedContent.costAndPayment,
+      additionalNotes: extractedContent.additionalNotes,
       createdAt: createdAt.toLocaleString('de-DE', {
         timeZone: 'Europe/Berlin',
         year: 'numeric',
@@ -118,33 +40,40 @@ async function createDocumentPage({ sessionId, serviceType, officeLocation, crea
         month: '2-digit',
         day: '2-digit'
       }),
-      baseUrl: process.env.BASE_URL || 'http://localhost:3000'
+      baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+      documentsCount: extractedContent.requiredDocuments.length
     };
     
     // Generate HTML
     const htmlContent = compiledTemplate(templateData);
     
     // Store session data
-    documentSessions.set(sessionId, {
+    const sessionData = {
       sessionId,
-      serviceType,
-      officeLocation,
+      extractedContent,
       htmlContent,
       createdAt,
       expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      accessCount: 0
-    });
+      accessCount: 0,
+      lastAccessed: null
+    };
+
+    documentSessions.set(sessionId, sessionData);
     
     // Schedule cleanup after expiration
     setTimeout(() => {
-      documentSessions.delete(sessionId);
-      console.log(`🗑️ Cleaned up expired session: ${sessionId}`);
+      if (documentSessions.has(sessionId)) {
+        documentSessions.delete(sessionId);
+        console.log(`🗑️ Auto-cleaned expired session: ${sessionId}`);
+      }
     }, 7 * 24 * 60 * 60 * 1000); // 7 days
+    
+    console.log(`📄 Document page created: ${sessionId} (${extractedContent.requiredDocuments.length} documents)`);
     
     return `${process.env.BASE_URL || 'http://localhost:3000'}/api/documents/${sessionId}`;
     
   } catch (error) {
-    console.error('Error creating document page:', error);
+    console.error('❌ Error creating document page:', error);
     throw new Error('Failed to create document page');
   }
 }
@@ -157,24 +86,27 @@ async function getDocumentPage(sessionId) {
     const session = documentSessions.get(sessionId);
     
     if (!session) {
+      console.log(`❌ Session not found: ${sessionId}`);
       return null;
     }
     
     // Check if expired
     if (new Date() > session.expiresAt) {
       documentSessions.delete(sessionId);
+      console.log(`🗑️ Expired session deleted: ${sessionId}`);
       return null;
     }
     
-    // Increment access count
+    // Update access tracking
     session.accessCount++;
+    session.lastAccessed = new Date();
     
-    console.log(`📄 Document page accessed: ${sessionId} (${session.accessCount} times)`);
+    console.log(`📖 Document accessed: ${sessionId} (${session.accessCount} times, service: ${session.extractedContent.serviceTitle})`);
     
     return session.htmlContent;
     
   } catch (error) {
-    console.error('Error getting document page:', error);
+    console.error('❌ Error getting document page:', error);
     return null;
   }
 }
@@ -193,7 +125,9 @@ async function cleanupExpiredSessions() {
     }
   }
   
-  console.log(`🗑️ Cleanup completed: ${deletedCount} expired sessions removed`);
+  if (deletedCount > 0) {
+    console.log(`🗑️ Cleanup completed: ${deletedCount} expired sessions removed`);
+  }
   
   return { deletedCount };
 }
@@ -205,6 +139,8 @@ function getSessionStats() {
   const now = new Date();
   let active = 0;
   let expired = 0;
+  let totalAccesses = 0;
+  const serviceTypes = {};
   
   for (const session of documentSessions.values()) {
     if (now > session.expiresAt) {
@@ -212,18 +148,71 @@ function getSessionStats() {
     } else {
       active++;
     }
+    
+    totalAccesses += session.accessCount;
+    
+    const serviceTitle = session.extractedContent.serviceTitle;
+    serviceTypes[serviceTitle] = (serviceTypes[serviceTitle] || 0) + 1;
   }
   
   return {
     total: documentSessions.size,
     active,
-    expired
+    expired,
+    totalAccesses,
+    averageAccessesPerSession: documentSessions.size > 0 ? totalAccesses / documentSessions.size : 0,
+    serviceTypes
   };
+}
+
+/**
+ * Get recent sessions (for debugging/monitoring)
+ */
+function getRecentSessions(limit = 10) {
+  return Array.from(documentSessions.values())
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, limit)
+    .map(session => ({
+      sessionId: session.sessionId,
+      serviceTitle: session.extractedContent.serviceTitle,
+      documentsCount: session.extractedContent.requiredDocuments.length,
+      officeName: session.extractedContent.officeDetails.name,
+      createdAt: session.createdAt,
+      accessCount: session.accessCount,
+      lastAccessed: session.lastAccessed
+    }));
+}
+
+/**
+ * Search sessions by service type or office
+ */
+function searchSessions(query) {
+  const results = [];
+  const searchTerm = query.toLowerCase();
+  
+  for (const session of documentSessions.values()) {
+    const serviceTitle = session.extractedContent.serviceTitle.toLowerCase();
+    const officeName = session.extractedContent.officeDetails.name.toLowerCase();
+    
+    if (serviceTitle.includes(searchTerm) || officeName.includes(searchTerm)) {
+      results.push({
+        sessionId: session.sessionId,
+        serviceTitle: session.extractedContent.serviceTitle,
+        officeName: session.extractedContent.officeDetails.name,
+        createdAt: session.createdAt,
+        accessCount: session.accessCount
+      });
+    }
+  }
+  
+  return results.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 module.exports = {
   createDocumentPage,
   getDocumentPage,
   cleanupExpiredSessions,
-  getSessionStats
+  getSessionStats,
+  getRecentSessions,
+  searchSessions
 };
