@@ -15,7 +15,8 @@ function createShortUrl(longUrl, sessionId) {
     // Check if we already have a short URL for this session
     if (reverseMap.has(sessionId)) {
       const existingShortCode = reverseMap.get(sessionId);
-      const baseUrl = process.env.BASE_URL || 'https://your-app.railway.app';
+      const { getBaseUrl } = require('./documents');
+      const baseUrl = getBaseUrl();
       return `${baseUrl}/s/${existingShortCode}`;
     }
 
@@ -43,7 +44,9 @@ function createShortUrl(longUrl, sessionId) {
       }
     }, 7 * 24 * 60 * 60 * 1000);
     
-    const baseUrl = process.env.BASE_URL || 'https://your-app.railway.app';
+    const { getBaseUrl } = require('./documents');
+    
+    const baseUrl = getBaseUrl();
     const shortUrl = `${baseUrl}/s/${shortCode}`;
     
     console.log(`🔗 Short URL created: ${longUrl} -> ${shortUrl}`);

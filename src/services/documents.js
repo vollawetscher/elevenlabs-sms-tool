@@ -85,12 +85,26 @@ async function createDocumentPage({ sessionId, extractedContent, createdAt }) {
     
     console.log(`📄 Document page created: ${sessionId} (${extractedContent.requiredDocuments.length} documents)`);
     
-    return `${process.env.BASE_URL || 'http://localhost:3000'}/api/documents/${sessionId}`;
+    return `${getBaseUrl()}/api/documents/${sessionId}`;
     
   } catch (error) {
     console.error('❌ Error creating document page:', error);
     throw new Error('Failed to create document page');
   }
+}
+
+/**
+ * Get properly formatted base URL with https://
+ */
+function getBaseUrl() {
+  let baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+  
+  // Ensure https:// for production
+  if (!baseUrl.startsWith('http')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  
+  return baseUrl;
 }
 
 /**
@@ -323,5 +337,6 @@ module.exports = {
   cleanupExpiredSessions,
   getSessionStats,
   getRecentSessions,
-  searchSessions
+  searchSessions,
+  getBaseUrl
 };
