@@ -10,6 +10,9 @@ const documentRoutes = require('./routes/documents');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy (required for Railway/Heroku/etc.)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors());
@@ -23,8 +26,14 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ 
+  limit: '10mb',
+  strict: false // Allow special characters
+}));
+app.use(express.urlencoded({ 
+  extended: true,
+  limit: '10mb'
+}));
 
 // Serve static files (for document pages)
 app.use('/static', express.static('public'));
