@@ -50,6 +50,16 @@ app.use('/api/documents', documentRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
+  
+  // Handle JSON parsing errors
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      error: 'Invalid JSON',
+      message: 'Request body contains invalid JSON. Check for special characters or formatting.',
+      received: err.body?.substring(0, 200) + '...'
+    });
+  }
+  
   res.status(500).json({ 
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
