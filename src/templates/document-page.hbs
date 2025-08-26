@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{service.title}} - Unterlagenliste</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f9f9f9;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .generated-info {
+            background: #ecf0f1;
+            padding: 15px 30px;
+            border-bottom: 3px solid #3498db;
+        }
+        
+        .generated-info span {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            font-size: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #3498db;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section h2::before {
+            margin-right: 10px;
+            font-size: 24px;
+        }
+        
+        .contact h2::before { content: "📞"; }
+        .documents h2::before { content: "📋"; }
+        .cost h2::before { content: "💰"; }
+        .privacy h2::before { content: "🔒"; }
+        
+        .office-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .office-details h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .detail-row {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        
+        .detail-row strong {
+            min-width: 80px;
+            color: #34495e;
+        }
+        
+        .hours-table {
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .hours-row {
+            display: flex;
+            padding: 8px 12px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .hours-row:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .hours-row strong {
+            min-width: 60px;
+        }
+        
+        .document-list {
+            list-style: none;
+        }
+        
+        .document-item {
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border-left: 4px solid #27ae60;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #27ae60;
+            border-radius: 3px;
+            margin-right: 15px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+        
+        .cost-info {
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .privacy-notice {
+            background: #d1ecf1;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #17a2b8;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .qr-placeholder {
+            width: 60px;
+            height: 60px;
+            background: #ecf0f1;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 10px auto;
+            position: relative;
+        }
+        
+        .qr-placeholder::before {
+            content: "QR";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+            
+            .header {
+                background: #2c3e50 !important;
+                -webkit-print-color-adjust: exact;
+            }
+            
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .content {
+                padding: 20px 20px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .detail-row strong {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>{{service.title}}</h1>
+            <p>{{service.description}}</p>
+        </div>
+        
+        <!-- Generated Info -->
+        <div class="generated-info">
+            <span>📅 Erstellt: {{createdAt}} | Gültig bis: {{expiresAt}}</span>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+            <!-- Contact Information -->
+            <div class="section contact">
+                <h2>Kontaktinformationen</h2>
+                <div class="office-details">
+                    <h3>{{office.name}}</h3>
+                    
+                    <div class="detail-row">
+                        <strong>📍 Adresse:</strong>
+                        <span>{{office.address}}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <strong>📞 Telefon:</strong>
+                        <span>{{office.phone}}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <strong>🌐 Website:</strong>
+                        <span>{{office.website}}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <strong>🕒 Öffnungszeiten:</strong>
+                    </div>
+                    
+                    <div class="hours-table">
+                        {{#each office.hours}}
+                        <div class="hours-row">
+                            <strong>{{@key}}:</strong>
+                            <span>{{this}}</span>
+                        </div>
+                        {{/each}}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Required Documents -->
+            <div class="section documents">
+                <h2>Benötigte Unterlagen</h2>
+                <p style="margin-bottom: 20px; color: #7f8c8d;">
+                    Bitte bringen Sie alle folgenden Dokumente mit:
+                </p>
+                
+                <ul class="document-list">
+                    {{#each service.documents}}
+                    <li class="document-item">
+                        <div class="checkbox"></div>
+                        <span>{{this}}</span>
+                    </li>
+                    {{/each}}
+                </ul>
+            </div>
+            
+            <!-- Cost Information -->
+            <div class="section cost">
+                <h2>Kosten & Zahlung</h2>
+                <div class="cost-info">
+                    <div class="detail-row">
+                        <strong>💰 Gebühr:</strong>
+                        <span>{{service.cost}}</span>
+                    </div>
+                    
+                    <div class="detail-row">
+                        <strong>💳 Zahlung:</strong>
+                        <span>{{service.paymentMethods}}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Privacy Notice -->
+            <div class="section privacy">
+                <h2>Datenschutzhinweis (DSGVO)</h2>
+                <div class="privacy-notice">
+                    <p>
+                        <strong>Datenverarbeitung:</strong> Ihre Telefonnummer wurde temporär gespeichert, 
+                        um Ihnen diesen Link zu senden, und wird innerhalb von 48 Stunden automatisch gelöscht.
+                    </p>
+                    <p style="margin-top: 10px;">
+                        <strong>Gültigkeit:</strong> Diese Seite läuft am {{expiresAt}} ab und wird automatisch entfernt.
+                    </p>
+                    <p style="margin-top: 10px;">
+                        <strong>Ihre Rechte:</strong> Sie haben das Recht auf Auskunft, Berichtigung und Löschung 
+                        Ihrer Daten. Bei Fragen wenden Sie sich an die jeweilige Zulassungsstelle.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="qr-placeholder"></div>
+            <p>Digitaler Assistent der KFZ-Zulassungsstelle</p>
+            <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">
+                Session: {{sessionId}} | Generiert: {{createdAt}}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

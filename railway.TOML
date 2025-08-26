@@ -1,0 +1,14 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[[services]]
+name = "elevenlabs-sms-tool"
+
+[services.variables]
+NODE_ENV = "production"
