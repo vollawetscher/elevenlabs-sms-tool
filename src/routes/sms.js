@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { sendSMS } = require('../services/sevenio');
 const { createDocumentPage } = require('../services/documents');
+const { createShortUrl } = require('../services/urlShortener');
 const { validatePhoneNumber, sanitizeInput, validateRequestPayload } = require('../utils/validation');
 const { logSMSRequest } = require('../utils/logging');
 
@@ -72,8 +73,11 @@ router.post('/send', async (req, res) => {
       createdAt: new Date()
     });
 
-    // Prepare SMS message
-    const smsMessage = `${extractedContent.serviceTitle} - Ihre Unterlagenliste: ${documentUrl}`;
+    // Create short URL for SMS (better for mobile)
+    const shortUrl = createShortUrl(documentUrl, sessionId);
+
+    // Prepare SMS message with short URL
+    const smsMessage = `${extractedContent.serviceTitle} - Ihre Unterlagenliste: ${shortUrl}`;
 
     // Validate SMS length
     if (smsMessage.length > 160) {
@@ -117,7 +121,8 @@ router.post('/send', async (req, res) => {
       success: true,
       message: 'Document list sent via SMS',
       sessionId,
-      documentUrl,
+      documentUrl, // Original long URL
+      shortUrl,    // Short URL used in SMS
       smsId: smsResult.messageId,
       documentsCount: extractedContent.requiredDocuments.length,
       spokenResponse: `I've sent your ${extractedContent.serviceTitle.toLowerCase()} document list to your phone. You should receive the link shortly.`
