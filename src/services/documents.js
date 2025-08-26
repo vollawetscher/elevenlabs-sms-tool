@@ -19,9 +19,19 @@ async function createDocumentPage({ sessionId, extractedContent, createdAt }) {
       console.log(`🔍 __dirname is: ${__dirname}`);
       console.log(`🔍 Resolved path: ${path.resolve(templatePath)}`);
       
-      const templateSource = await fs.readFile(templatePath, 'utf-8');
-      const compiledTemplate = Handlebars.compile(templateSource);
-      console.log(`✅ Template loaded successfully`);
+      // Check if file exists first
+      const fs = require('fs');
+      const fileExists = fs.existsSync(templatePath);
+      console.log(`🔍 File exists: ${fileExists}`);
+      
+      if (fileExists) {
+        const templateSource = await fs.readFile(templatePath, 'utf-8');
+        console.log(`✅ Template loaded successfully (${templateSource.length} characters)`);
+        const compiledTemplate = Handlebars.compile(templateSource);
+      } else {
+        console.log(`❌ Template file does not exist at: ${templatePath}`);
+        throw new Error('Template file not found');
+      }
       
       // Process extracted content for template
       const templateData = {

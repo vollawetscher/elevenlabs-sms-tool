@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const smsRoutes = require('./routes/sms');
 const documentRoutes = require('./routes/documents');
+const shortUrlRoutes = require('./routes/shortUrl');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +47,33 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/sms', smsRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/s', shortUrlRoutes); // Short URL redirects
+
+// Debug route to check file system (temporary)
+app.get('/debug/files', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  
+  try {
+    const srcDir = path.join(__dirname, 'src');
+    const templatesDir = path.join(__dirname, 'src/templates');
+    const templateFile = path.join(__dirname, 'src/templates/conversation-document.hbs');
+    
+    const debug = {
+      cwd: process.cwd(),
+      __dirname,
+      srcExists: fs.existsSync(srcDir),
+      templatesExists: fs.existsSync(templatesDir),
+      templateExists: fs.existsSync(templateFile),
+      srcContents: fs.existsSync(srcDir) ? fs.readdirSync(srcDir) : 'N/A',
+      templatesContents: fs.existsSync(templatesDir) ? fs.readdirSync(templatesDir) : 'N/A'
+    };
+    
+    res.json(debug);
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {

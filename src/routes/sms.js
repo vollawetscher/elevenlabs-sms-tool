@@ -74,7 +74,7 @@ router.post('/send', async (req, res) => {
     });
 
     // Create short URL for SMS (better for mobile)
-    const shortUrl = createShortUrl(documentUrl, sessionId);
+    const shortUrl = await createShortUrl(documentUrl, sessionId);
 
     // Prepare SMS message with short URL
     const smsMessage = `${extractedContent.serviceTitle} - Ihre Unterlagenliste: ${shortUrl}`;
