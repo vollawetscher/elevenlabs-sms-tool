@@ -10,42 +10,57 @@ const documentSessions = new Map();
  */
 async function createDocumentPage({ sessionId, extractedContent, createdAt }) {
   try {
-    // Load HTML template
-    const templatePath = path.join(__dirname, '../templates/conversation-document.hbs');
-    const templateSource = await fs.readFile(templatePath, 'utf-8');
-    const compiledTemplate = Handlebars.compile(templateSource);
+    let htmlContent;
     
-    // Process extracted content for template
-    const templateData = {
-      sessionId,
-      service: {
-        title: extractedContent.serviceTitle,
-        description: `Basierend auf Ihrem Gespräch vom ${createdAt.toLocaleDateString('de-DE')}`
-      },
-      documents: extractedContent.requiredDocuments,
-      office: extractedContent.officeDetails,
-      cost: extractedContent.costAndPayment,
-      additionalNotes: extractedContent.additionalNotes,
-      createdAt: createdAt.toLocaleString('de-DE', {
-        timeZone: 'Europe/Berlin',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleString('de-DE', {
-        timeZone: 'Europe/Berlin',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }),
-      baseUrl: process.env.BASE_URL || 'http://localhost:3000',
-      documentsCount: extractedContent.requiredDocuments.length
-    };
-    
-    // Generate HTML
-    const htmlContent = compiledTemplate(templateData);
+    // Try to load the Handlebars template
+    try {
+      const templatePath = path.join(__dirname, '../templates/conversation-document.hbs');
+      console.log(`🔍 Looking for template at: ${templatePath}`);
+      console.log(`🔍 __dirname is: ${__dirname}`);
+      console.log(`🔍 Resolved path: ${path.resolve(templatePath)}`);
+      
+      const templateSource = await fs.readFile(templatePath, 'utf-8');
+      const compiledTemplate = Handlebars.compile(templateSource);
+      console.log(`✅ Template loaded successfully`);
+      
+      // Process extracted content for template
+      const templateData = {
+        sessionId,
+        service: {
+          title: extractedContent.serviceTitle,
+          description: `Basierend auf Ihrem Gespräch vom ${createdAt.toLocaleDateString('de-DE')}`
+        },
+        documents: extractedContent.requiredDocuments,
+        office: extractedContent.officeDetails,
+        cost: extractedContent.costAndPayment,
+        additionalNotes: extractedContent.additionalNotes,
+        createdAt: createdAt.toLocaleString('de-DE', {
+          timeZone: 'Europe/Berlin',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleString('de-DE', {
+          timeZone: 'Europe/Berlin',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }),
+        baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+        documentsCount: extractedContent.requiredDocuments.length
+      };
+      
+      // Generate HTML
+      htmlContent = compiledTemplate(templateData);
+      
+    } catch (templateError) {
+      console.log('⚠️ Template file not found, using fallback HTML generator');
+      
+      // Fallback: Generate HTML without template
+      htmlContent = generateFallbackHTML(sessionId, extractedContent, createdAt);
+    }
     
     // Store session data
     const sessionData = {
@@ -76,6 +91,100 @@ async function createDocumentPage({ sessionId, extractedContent, createdAt }) {
     console.error('❌ Error creating document page:', error);
     throw new Error('Failed to create document page');
   }
+}
+
+/**
+ * Generate fallback HTML when template is not available
+ */
+function generateFallbackHTML(sessionId, extractedContent, createdAt) {
+  const documentsListHTML = extractedContent.requiredDocuments
+    .map((doc, index) => `<div style="margin: 10px 0; padding: 15px; background: #f8f9fa; border-left: 4px solid #28a745; border-radius: 4px;">
+      <input type="checkbox" id="doc${index}" style="margin-right: 10px;">
+      <label for="doc${index}">${doc}</label>
+    </div>`)
+    .join('');
+
+  const officeHTML = extractedContent.officeDetails ? `
+    <div style="background: #e9ecef; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3 style="color: #495057; margin-bottom: 15px;">📍 ${extractedContent.officeDetails.name || 'KFZ-Zulassungsstelle'}</h3>
+      ${extractedContent.officeDetails.address ? `<p><strong>Adresse:</strong> ${extractedContent.officeDetails.address}</p>` : ''}
+      ${extractedContent.officeDetails.phone ? `<p><strong>Telefon:</strong> ${extractedContent.officeDetails.phone}</p>` : ''}
+      ${extractedContent.officeDetails.hours ? `<p><strong>Öffnungszeiten:</strong> ${extractedContent.officeDetails.hours}</p>` : ''}
+    </div>` : '';
+
+  const costHTML = extractedContent.costAndPayment ? `
+    <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+      <h3 style="color: #856404; margin-bottom: 15px;">💰 Kosten & Zahlung</h3>
+      ${extractedContent.costAndPayment.cost ? `<p><strong>Gebühr:</strong> ${extractedContent.costAndPayment.cost}</p>` : ''}
+      ${extractedContent.costAndPayment.paymentMethods ? `<p><strong>Zahlung:</strong> ${extractedContent.costAndPayment.paymentMethods}</p>` : ''}
+    </div>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${extractedContent.serviceTitle} - Unterlagenliste</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background: #f8f9fa; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #007bff, #0056b3); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0 0 10px; font-size: 28px; }
+        .header p { margin: 0; opacity: 0.9; }
+        .content { padding: 30px; }
+        .section { margin-bottom: 30px; }
+        .section h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .badge { background: #17a2b8; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+        .footer { background: #343a40; color: white; padding: 20px; text-align: center; font-size: 12px; }
+        @media print { body { background: white; } .container { box-shadow: none; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${extractedContent.serviceTitle}</h1>
+            <p>Basierend auf Ihrem Gespräch vom ${createdAt.toLocaleDateString('de-DE')}</p>
+            <span class="badge">📞 Aus Ihrem Gespräch extrahiert</span>
+        </div>
+        
+        <div class="content">
+            ${officeHTML}
+            
+            <div class="section">
+                <h2>📋 Benötigte Unterlagen</h2>
+                <p style="color: #666; font-style: italic; margin-bottom: 20px;">
+                    Diese Liste basiert auf den spezifischen Informationen aus Ihrem Gespräch:
+                </p>
+                ${documentsListHTML}
+            </div>
+            
+            ${costHTML}
+            
+            ${extractedContent.additionalNotes ? `
+            <div class="section">
+                <h2>📝 Wichtige Hinweise</h2>
+                <div style="background: #d1ecf1; padding: 20px; border-radius: 8px; border-left: 4px solid #17a2b8;">
+                    <p>${extractedContent.additionalNotes}</p>
+                </div>
+            </div>` : ''}
+            
+            <div class="section">
+                <h2>🔒 Datenschutzhinweis</h2>
+                <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; font-size: 14px;">
+                    <p><strong>Datenverarbeitung:</strong> Ihre Telefonnummer wurde temporär gespeichert und wird innerhalb von 48 Stunden automatisch gelöscht.</p>
+                    <p><strong>Gültigkeit:</strong> Diese Seite läuft in 7 Tagen ab und wird automatisch entfernt.</p>
+                    <p><strong>Personalisierte Inhalte:</strong> Diese Liste wurde basierend auf Ihrem spezifischen Gespräch erstellt.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Digitaler Assistent der KFZ-Zulassungsstelle</p>
+            <p>Session: ${sessionId} | Erstellt: ${createdAt.toLocaleString('de-DE')}</p>
+        </div>
+    </div>
+</body>
+</html>`;
 }
 
 /**
