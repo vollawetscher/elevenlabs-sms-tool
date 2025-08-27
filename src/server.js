@@ -6,7 +6,7 @@ require('dotenv').config();
 
 const smsRoutes = require('./routes/sms');
 const documentRoutes = require('./routes/documents');
-const shortUrlRoutes = require('./routes/shortUrl');
+// shortUrl routes not needed - using external is.gd service
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,7 +47,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/sms', smsRoutes);
 app.use('/api/documents', documentRoutes);
-app.use('/s', shortUrlRoutes); // Internal short URLs as fallback
+// No internal short URL routes - using external is.gd service
 
 // Debug route to check file system (temporary)
 app.get('/debug/files', (req, res) => {
