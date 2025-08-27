@@ -82,20 +82,20 @@ router.post('/send', async (req, res) => {
     // Prepare SMS message with short URL
     const smsMessage = `${extractedContent.serviceTitle} - Ihre Unterlagenliste: ${shortUrl}`;
 
-    // Validate SMS length
-    if (smsMessage.length > 160) {
-      // Use shorter message for long service titles
-      const shortMessage = `Ihre Unterlagenliste: ${documentUrl}`;
-      console.log(`📱 SMS shortened: ${smsMessage.length} -> ${shortMessage.length} chars`);
-    }
-
-    const finalSMSMessage = smsMessage.length > 160 
-      ? `Ihre Unterlagenliste: ${documentUrl}`
-      : smsMessage;
-
-    // Send SMS via seven.io
-    console.log(`📱 Sending SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
-    const smsResult = await sendSMS(phoneValidation.formatted, finalSMSMessage);
+    // TEMPORARILY DISABLE SMS - Testing URLs directly
+    console.log(`📱 [DRY RUN] Would send SMS to ${phoneValidation.formatted}`);
+    console.log(`📱 [DRY RUN] Message: ${smsMessage}`);
+    
+    const smsResult = {
+      success: true,
+      messageId: 'dry-run-' + Date.now(),
+      cost: 0,
+      parts: 1
+    };
+    
+    // Send SMS via seven.io (DISABLED FOR TESTING)
+    // console.log(`📱 Sending SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
+    // const smsResult = await sendSMS(phoneValidation.formatted, smsMessage);
 
     if (!smsResult.success) {
       console.error('❌ SMS sending failed:', smsResult.error);

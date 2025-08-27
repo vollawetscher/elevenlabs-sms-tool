@@ -1,32 +1,101 @@
 const crypto = require('crypto');
+const axios = require('axios');
 
 // In-memory storage for URL mappings (use Redis in production)
 const urlMappings = new Map();
 const reverseMap = new Map(); // For cleanup
 
 /**
- * Create a short URL for the document link
+ * Create a short URL using is.gd service (external)
  * @param {string} longUrl - Full document URL
  * @param {string} sessionId - Session ID for tracking
- * @returns {string} - Shortened URL
+ * @returns {string} - Shortened URL from is.gd
  */
-function createShortUrl(longUrl, sessionId) {
+async function createShortUrl(longUrl, sessionId) {
   try {
     // Check if we already have a short URL for this session
     if (reverseMap.has(sessionId)) {
-      const existingShortCode = reverseMap.get(sessionId);
-      const { getBaseUrl } = require('./documents');
-      const baseUrl = getBaseUrl();
-      return `${baseUrl}/s/${existingShortCode}`;
+      const existingShortUrl = reverseMap.get(sessionId);
+      console.log(`🔗 Reusing cached short URL for session ${sessionId}: ${existingShortUrl}`);
+      return existingShortUrl;
     }
 
-    // Generate short code (8 characters for uniqueness but still short for SMS)
-    const shortCode = crypto.randomBytes(4).toString('hex').toLowerCase();
+    // Use is.gd API to shorten the URL
+    console.log(`🔗 Creating NEW short URL for: ${longUrl}`);
+    console.log(`🔗 Attempting is.gd API call...`);
+    
+    const response = await axios.get('https://is.gd/create.php', {
+      params: {
+        format: 'simple',
+        url: longUrl
+      },
+      timeout: 10000 // 10 second timeout
+    });
+
+    const shortUrl = response.data.trim();
+    console.log(`🔗 is.gd response: ${shortUrl}`);
+    
+    // Validate response
+    if (!shortUrl.startsWith('https://is.gd/')) {
+      throw new Error(`Invalid response from is.gd: ${shortUrl}`);
+    }
+    
+    // Store mapping for analytics and cleanup
+    const shortUrlData = {
+      longUrl,
+      shortUrl,
+      sessionId,
+      createdAt: new Date(),
+      accessCount: 0,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    };
+    
+    // Use session ID as key since we can't extract is.gd code easily
+    urlMappings.set(sessionId, shortUrlData);
+    reverseMap.set(sessionId, shortUrl);
+    
+    // Schedule cleanup after expiration
+    setTimeout(() => {
+      if (urlMappings.has(sessionId)) {
+        urlMappings.delete(sessionId);
+        reverseMap.delete(sessionId);
+        console.log(`🗑️ Expired URL mapping cleaned up: ${sessionId}`);
+      }
+    }, 7 * 24 * 60 * 60 * 1000);
+    
+    console.log(`✅ Short URL created: ${longUrl} -> ${shortUrl}`);
+    
+    return shortUrl;
+    
+  } catch (error) {
+    console.error('❌ Error creating short URL with is.gd:');
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error response:', error.response?.data);
+    console.error('Full error:', error);
+    
+    // Fallback: try our internal shortener
+    console.log('⚠️ Falling back to internal URL shortener...');
+    return createInternalShortUrl(longUrl, sessionId);
+  }
+}
+
+/**
+ * Fallback internal short URL creator
+ * @param {string} longUrl - Full document URL  
+ * @param {string} sessionId - Session ID for tracking
+ * @returns {string} - Internal shortened URL
+ */
+function createInternalShortUrl(longUrl, sessionId) {
+  try {
+    // Generate short code (6 characters for balance of brevity and uniqueness)
+    const shortCode = crypto.randomBytes(3).toString('hex').toLowerCase();
     
     // Store mapping
     const shortUrlData = {
       longUrl,
       sessionId,
+      shortCode,
       createdAt: new Date(),
       accessCount: 0,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
@@ -40,22 +109,21 @@ function createShortUrl(longUrl, sessionId) {
       if (urlMappings.has(shortCode)) {
         urlMappings.delete(shortCode);
         reverseMap.delete(sessionId);
-        console.log(`🗑️ Expired short URL cleaned up: ${shortCode}`);
+        console.log(`🗑️ Expired internal short URL cleaned up: ${shortCode}`);
       }
     }, 7 * 24 * 60 * 60 * 1000);
     
     const { getBaseUrl } = require('./documents');
-    
     const baseUrl = getBaseUrl();
     const shortUrl = `${baseUrl}/s/${shortCode}`;
     
-    console.log(`🔗 Short URL created: ${longUrl} -> ${shortUrl}`);
+    console.log(`🔗 Internal short URL created: ${longUrl} -> ${shortUrl}`);
     
     return shortUrl;
     
   } catch (error) {
-    console.error('❌ Error creating short URL:', error);
-    // Fallback to original URL if shortening fails
+    console.error('❌ Error creating internal short URL:', error);
+    // Last resort: return original URL
     return longUrl;
   }
 }
