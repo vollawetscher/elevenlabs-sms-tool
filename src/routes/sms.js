@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { sendSMS } = require('../services/sevenio');
 const { createDocumentPage } = require('../services/documents');
 const { createShortUrl } = require('../services/urlShortener');
+console.log('🔗 urlShortener service imported successfully');
 const { validatePhoneNumber, sanitizeInput, validateRequestPayload } = require('../utils/validation');
 const { logSMSRequest } = require('../utils/logging');
 
@@ -73,8 +74,10 @@ router.post('/send', async (req, res) => {
       createdAt: new Date()
     });
 
-    // Create short URL for SMS (better for mobile)
+    // Create short URL for SMS (using is.gd external service)
+    console.log(`🔗 About to call createShortUrl with: ${documentUrl}`);
     const shortUrl = await createShortUrl(documentUrl, sessionId);
+    console.log(`🔗 Received short URL: ${shortUrl}`);
 
     // Prepare SMS message with short URL
     const smsMessage = `${extractedContent.serviceTitle} - Ihre Unterlagenliste: ${shortUrl}`;
