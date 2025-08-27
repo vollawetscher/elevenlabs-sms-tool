@@ -6,7 +6,7 @@ require('dotenv').config();
 
 const smsRoutes = require('./routes/sms');
 const documentRoutes = require('./routes/documents');
-// const shortUrlRoutes = require('./routes/shortUrl'); // Temporarily commented out
+const shortUrlRoutes = require('./routes/shortUrl');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,7 +47,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/sms', smsRoutes);
 app.use('/api/documents', documentRoutes);
-// app.use('/s', shortUrlRoutes); // Temporarily commented out - using external is.gd instead
+app.use('/s', shortUrlRoutes); // Internal short URLs as fallback
 
 // Debug route to check file system (temporary)
 app.get('/debug/files', (req, res) => {
@@ -72,6 +72,43 @@ app.get('/debug/files', (req, res) => {
     res.json(debug);
   } catch (error) {
     res.json({ error: error.message });
+  }
+});
+
+// Debug route to test is.gd API directly
+app.get('/debug/isgd/:testUrl?', async (req, res) => {
+  const axios = require('axios');
+  const testUrl = req.params.testUrl || 'https://elevenlabs-sms-tool-production.up.railway.app/api/documents/debug-test';
+  
+  try {
+    console.log(`🧪 Testing is.gd with: ${testUrl}`);
+    
+    const response = await axios.get('https://is.gd/create.php', {
+      params: {
+        format: 'simple',
+        url: testUrl
+      },
+      timeout: 10000
+    });
+    
+    const shortUrl = response.data.trim();
+    console.log(`🧪 is.gd response: ${shortUrl}`);
+    
+    res.json({
+      success: true,
+      originalUrl: testUrl,
+      shortUrl: shortUrl,
+      isValid: shortUrl.startsWith('https://is.gd/')
+    });
+    
+  } catch (error) {
+    console.error(`🧪 is.gd test failed:`, error.message);
+    res.json({
+      success: false,
+      originalUrl: testUrl,
+      error: error.message,
+      code: error.code
+    });
   }
 });
 
