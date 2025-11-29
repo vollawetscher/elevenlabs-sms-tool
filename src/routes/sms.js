@@ -82,20 +82,9 @@ router.post('/send', async (req, res) => {
     // Prepare SMS message with short URL
     const smsMessage = `${extractedContent.serviceTitle} - Ihre Unterlagenliste: ${shortUrl}`;
 
-    // TEMPORARILY DISABLE SMS - Testing URLs directly
-    console.log(`📱 [DRY RUN] Would send SMS to ${phoneValidation.formatted}`);
-    console.log(`📱 [DRY RUN] Message: ${smsMessage}`);
-    
-    const smsResult = {
-      success: true,
-      messageId: 'dry-run-' + Date.now(),
-      cost: 0,
-      parts: 1
-    };
-    
-    // Send SMS via seven.io (DISABLED FOR TESTING)
-    // console.log(`📱 Sending SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
-    // const smsResult = await sendSMS(phoneValidation.formatted, smsMessage);
+    // Send SMS via seven.io
+    console.log(`📱 Sending SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
+    const smsResult = await sendSMS(phoneValidation.formatted, smsMessage);
 
     if (!smsResult.success) {
       console.error('❌ SMS sending failed:', smsResult.error);
@@ -136,6 +125,83 @@ router.post('/send', async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to process document request',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Simple SMS endpoint for basic text messages (no document generation)
+router.post('/send-simple', async (req, res) => {
+  try {
+    const { phone_number, message } = req.body;
+
+    // Validate required fields
+    if (!phone_number || !message) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['phone_number', 'message'],
+        received: Object.keys(req.body)
+      });
+    }
+
+    // Validate phone number
+    const phoneValidation = validatePhoneNumber(phone_number);
+    if (!phoneValidation.isValid) {
+      return res.status(400).json({
+        error: 'Invalid phone number',
+        message: phoneValidation.message
+      });
+    }
+
+    // Sanitize message
+    const sanitizedMessage = sanitizeInput(message);
+
+    // Validate message length (SMS max length is 160 characters per part)
+    if (sanitizedMessage.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid message',
+        message: 'Message cannot be empty after sanitization'
+      });
+    }
+
+    if (sanitizedMessage.length > 1000) {
+      return res.status(400).json({
+        error: 'Message too long',
+        message: 'Message cannot exceed 1000 characters'
+      });
+    }
+
+    // Send SMS via seven.io
+    console.log(`📱 Sending simple SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
+    const smsResult = await sendSMS(phoneValidation.formatted, sanitizedMessage);
+
+    if (!smsResult.success) {
+      console.error('❌ Simple SMS sending failed:', smsResult.error);
+      return res.status(500).json({
+        error: 'Failed to send SMS',
+        message: smsResult.error,
+        code: smsResult.code
+      });
+    }
+
+    console.log(`✅ Simple SMS sent successfully. Message ID: ${smsResult.messageId}`);
+
+    // Successful response for ElevenLabs Voice Agent
+    res.json({
+      success: true,
+      message: 'SMS sent successfully',
+      smsId: smsResult.messageId,
+      cost: smsResult.cost,
+      parts: smsResult.parts,
+      phoneNumber: phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2'),
+      spokenResponse: 'I\'ve sent the SMS message to your phone.'
+    });
+
+  } catch (error) {
+    console.error('❌ Simple SMS send error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to send SMS',
       timestamp: new Date().toISOString()
     });
   }

@@ -80,6 +80,41 @@ Add this webhook tool to your ElevenLabs Voice Agent:
 }
 ```
 
+### Simple SMS Tool (No Document Generation)
+
+For sending basic text messages without document generation:
+
+```json
+{
+  "type": "webhook",
+  "name": "send_simple_sms",
+  "description": "Send a simple SMS message to a German phone number",
+  "api_schema": {
+    "url": "https://your-app.railway.app/api/sms/send-simple",
+    "method": "POST",
+    "request_body_schema": {
+      "type": "object",
+      "properties": [
+        {
+          "id": "phone_number",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Extract the German mobile phone number from conversation. Convert to +49 format (e.g., 0171234567 becomes +49171234567)",
+          "required": true
+        },
+        {
+          "id": "message",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "The SMS message text to send to the user. Should be concise and clear. Maximum 1000 characters.",
+          "required": true
+        }
+      ]
+    }
+  }
+}
+```
+
 ## API Endpoints
 
 ### POST /api/sms/send
@@ -89,8 +124,19 @@ curl -X POST https://your-app.railway.app/api/sms/send \
   -H "Content-Type: application/json" \
   -d '{
     "phone_number": "+49171234567",
-    "service_type": "lost_registration_document", 
+    "service_type": "lost_registration_document",
     "office_location": "lörrach"
+  }'
+```
+
+### POST /api/sms/send-simple
+Send a simple SMS message (no document generation)
+```bash
+curl -X POST https://your-app.railway.app/api/sms/send-simple \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "+49171234567",
+    "message": "Your appointment is confirmed for tomorrow at 10am."
   }'
 ```
 
