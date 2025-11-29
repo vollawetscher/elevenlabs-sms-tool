@@ -45,38 +45,49 @@ Add this webhook tool to your ElevenLabs Voice Agent:
 ```json
 {
   "type": "webhook",
-  "name": "send_sms_documents", 
+  "name": "send_sms_documents",
   "description": "Send SMS with required documents list for German vehicle registration",
   "api_schema": {
     "url": "https://your-app.railway.app/api/sms/send",
     "method": "POST",
+    "path_params_schema": {},
+    "query_params_schema": {},
+    "request_headers": {},
     "request_body_schema": {
+      "id": "send_sms_documents_body",
       "type": "object",
+      "description": "Request body for sending SMS with document checklist",
+      "required": ["phone_number", "service_type"],
       "properties": [
         {
           "id": "phone_number",
           "type": "string",
           "value_type": "llm_prompt",
+          "dynamic_variable": null,
           "description": "Extract the German mobile phone number from conversation. Convert to +49 format (e.g., 0171234567 becomes +49171234567)",
           "required": true
         },
         {
           "id": "service_type",
-          "type": "string", 
+          "type": "string",
           "value_type": "llm_prompt",
+          "dynamic_variable": null,
           "description": "Determine service type: 'lost_registration_document', 'vehicle_reregistration', 'new_registration', 'address_change', 'deregistration'",
           "required": true
         },
         {
           "id": "office_location",
           "type": "string",
-          "value_type": "llm_prompt", 
+          "value_type": "llm_prompt",
+          "dynamic_variable": null,
           "description": "Extract the city/location of the vehicle registration office (e.g., 'Lörrach', 'Berlin', 'München')",
           "required": false
         }
       ]
     }
-  }
+  },
+  "response_timeout_secs": 30,
+  "dynamic_variables": []
 }
 ```
 
@@ -92,13 +103,20 @@ For sending basic text messages without document generation:
   "api_schema": {
     "url": "https://your-app.railway.app/api/sms/send-simple",
     "method": "POST",
+    "path_params_schema": {},
+    "query_params_schema": {},
+    "request_headers": {},
     "request_body_schema": {
+      "id": "send_simple_sms_body",
       "type": "object",
+      "description": "Request body for sending a simple SMS message",
+      "required": ["phone_number", "message"],
       "properties": [
         {
           "id": "phone_number",
           "type": "string",
           "value_type": "llm_prompt",
+          "dynamic_variable": null,
           "description": "Extract the German mobile phone number from conversation. Convert to +49 format (e.g., 0171234567 becomes +49171234567)",
           "required": true
         },
@@ -106,12 +124,15 @@ For sending basic text messages without document generation:
           "id": "message",
           "type": "string",
           "value_type": "llm_prompt",
+          "dynamic_variable": null,
           "description": "The SMS message text to send to the user. Should be concise and clear. Maximum 1000 characters.",
           "required": true
         }
       ]
     }
-  }
+  },
+  "response_timeout_secs": 30,
+  "dynamic_variables": []
 }
 ```
 
