@@ -42,9 +42,7 @@ router.post('/send', async (req, res) => {
     // Sanitize and validate extracted content
     const extractedContent = {
       serviceTitle: sanitizeInput(service_title),
-      requiredDocuments: Array.isArray(required_documents) 
-        ? required_documents.map(doc => sanitizeInput(doc)).filter(doc => doc.length > 0)
-        : [],
+      requiredDocuments: normalizeRequiredDocuments(required_documents),
       officeDetails: validateOfficeDetails(office_details),
       costAndPayment: cost_and_payment ? {
         cost: sanitizeInput(cost_and_payment.cost || ''),
@@ -57,7 +55,7 @@ router.post('/send', async (req, res) => {
     if (extractedContent.requiredDocuments.length === 0) {
       return res.status(400).json({
         error: 'No valid documents found',
-        message: 'required_documents array is empty or contains no valid content'
+        message: 'required_documents must be an array or a semicolon-separated string with valid content'
       });
     }
 
@@ -232,6 +230,22 @@ router.get('/status/:sessionId', async (req, res) => {
     });
   }
 });
+
+/**
+ * Normalize required documents from ElevenLabs.
+ * The tool sometimes sends a semicolon-separated string even when we ask for an array.
+ */
+function normalizeRequiredDocuments(requiredDocuments) {
+  const documents = Array.isArray(requiredDocuments)
+    ? requiredDocuments
+    : typeof requiredDocuments === 'string'
+      ? requiredDocuments.split(/\s*;\s*|\r?\n/)
+      : [];
+
+  return documents
+    .map(doc => sanitizeInput(doc))
+    .filter(doc => doc.length > 0);
+}
 
 /**
  * Validate and sanitize office details from LLM extraction
