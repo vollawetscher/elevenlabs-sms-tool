@@ -13,6 +13,7 @@ const router = express.Router();
 router.post('/send', async (req, res) => {
   try {
     const {
+      caller_id,
       phone_number,
       service_title,
       required_documents,
@@ -22,20 +23,20 @@ router.post('/send', async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!phone_number || !service_title || !required_documents) {
+    if ((!caller_id && !phone_number) || !service_title || !required_documents) {
       return res.status(400).json({
         error: 'Missing required fields',
-        required: ['phone_number', 'service_title', 'required_documents'],
+        required: ['caller_id or phone_number', 'service_title', 'required_documents'],
         received: Object.keys(req.body)
       });
     }
 
-    // Validate phone number
-    const phoneValidation = validatePhoneNumber(phone_number);
-    if (!phoneValidation.isValid) {
+    // Prefer Twilio/ElevenLabs caller ID when it is a valid mobile number.
+    const recipient = selectSMSRecipient({ callerId: caller_id, phoneNumber: phone_number });
+    if (!recipient.isValid) {
       return res.status(400).json({
         error: 'Invalid phone number',
-        message: phoneValidation.message
+        message: recipient.message
       });
     }
 
@@ -81,8 +82,8 @@ router.post('/send', async (req, res) => {
     const smsMessage = `${extractedContent.serviceTitle} - Ihre Unterlagenliste: ${shortUrl}`;
 
     // Send SMS via seven.io
-    console.log(`📱 Sending SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
-    const smsResult = await sendSMS(phoneValidation.formatted, smsMessage);
+    console.log(`📱 Sending SMS to ${recipient.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')} (source: ${recipient.source})`);
+    const smsResult = await sendSMS(recipient.formatted, smsMessage);
 
     if (!smsResult.success) {
       console.error('❌ SMS sending failed:', smsResult.error);
@@ -96,7 +97,8 @@ router.post('/send', async (req, res) => {
     // Log the request (GDPR compliant)
     await logSMSRequest({
       sessionId,
-      phoneNumber: phoneValidation.formatted,
+      phoneNumber: recipient.formatted,
+      phoneSource: recipient.source,
       serviceTitle: extractedContent.serviceTitle,
       documentsCount: extractedContent.requiredDocuments.length,
       officeLocation: extractedContent.officeDetails?.name || 'Unknown',
@@ -115,6 +117,7 @@ router.post('/send', async (req, res) => {
       shortUrl,    // Short URL used in SMS
       smsId: smsResult.messageId,
       documentsCount: extractedContent.requiredDocuments.length,
+      phoneSource: recipient.source,
       spokenResponse: `I've sent your ${extractedContent.serviceTitle.toLowerCase()} document list to your phone. You should receive the link shortly.`
     });
 
@@ -131,23 +134,23 @@ router.post('/send', async (req, res) => {
 // Simple SMS endpoint for basic text messages (no document generation)
 router.post('/send-simple', async (req, res) => {
   try {
-    const { phone_number, message } = req.body;
+    const { caller_id, phone_number, message } = req.body;
 
     // Validate required fields
-    if (!phone_number || !message) {
+    if ((!caller_id && !phone_number) || !message) {
       return res.status(400).json({
         error: 'Missing required fields',
-        required: ['phone_number', 'message'],
+        required: ['caller_id or phone_number', 'message'],
         received: Object.keys(req.body)
       });
     }
 
-    // Validate phone number
-    const phoneValidation = validatePhoneNumber(phone_number);
-    if (!phoneValidation.isValid) {
+    // Prefer Twilio/ElevenLabs caller ID when it is a valid mobile number.
+    const recipient = selectSMSRecipient({ callerId: caller_id, phoneNumber: phone_number });
+    if (!recipient.isValid) {
       return res.status(400).json({
         error: 'Invalid phone number',
-        message: phoneValidation.message
+        message: recipient.message
       });
     }
 
@@ -170,8 +173,8 @@ router.post('/send-simple', async (req, res) => {
     }
 
     // Send SMS via seven.io
-    console.log(`📱 Sending simple SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
-    const smsResult = await sendSMS(phoneValidation.formatted, sanitizedMessage);
+    console.log(`📱 Sending simple SMS to ${recipient.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')} (source: ${recipient.source})`);
+    const smsResult = await sendSMS(recipient.formatted, sanitizedMessage);
 
     if (!smsResult.success) {
       console.error('❌ Simple SMS sending failed:', smsResult.error);
@@ -191,7 +194,8 @@ router.post('/send-simple', async (req, res) => {
       smsId: smsResult.messageId,
       cost: smsResult.cost,
       parts: smsResult.parts,
-      phoneNumber: phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2'),
+      phoneNumber: recipient.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2'),
+      phoneSource: recipient.source,
       spokenResponse: 'I\'ve sent the SMS message to your phone.'
     });
 
@@ -230,6 +234,27 @@ router.get('/status/:sessionId', async (req, res) => {
     });
   }
 });
+
+/**
+ * Select the safest SMS recipient. Prefer system__caller_id from Twilio/ElevenLabs
+ * when it is a valid German mobile number, and only fall back to LLM-extracted input.
+ */
+function selectSMSRecipient({ callerId, phoneNumber }) {
+  const callerValidation = callerId ? validatePhoneNumber(callerId) : { isValid: false };
+  if (callerValidation.isValid) {
+    return { ...callerValidation, source: 'caller_id' };
+  }
+
+  const phoneValidation = phoneNumber ? validatePhoneNumber(phoneNumber) : { isValid: false };
+  if (phoneValidation.isValid) {
+    return { ...phoneValidation, source: 'phone_number' };
+  }
+
+  return {
+    isValid: false,
+    message: 'No valid German mobile number found in caller_id or phone_number'
+  };
+}
 
 /**
  * Normalize required documents from ElevenLabs.
