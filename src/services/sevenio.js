@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { validatePhoneNumber } = require('../utils/validation');
 
 const SEVEN_IO_API_URL = 'https://gateway.seven.io/api/sms';
 
@@ -14,15 +15,20 @@ async function sendSMS(to, text) {
       throw new Error('SEVEN_IO_API_KEY environment variable not set');
     }
 
+    const phoneValidation = validatePhoneNumber(to);
+    if (!phoneValidation.isValid) {
+      throw new Error(phoneValidation.message);
+    }
+
     // Prepare SMS request
     const smsData = {
-      to,
+      to: phoneValidation.formatted,
       text,
       from: process.env.SMS_SENDER_ID || 'KFZ-Service', // Optional custom sender ID
       delay: 0 // Send immediately
     };
 
-    console.log(`📱 Sending SMS to ${to.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
+    console.log(`📱 Sending SMS to ${phoneValidation.formatted.replace(/(\+49\d{3})\d{4}(\d{3})/, '$1****$2')}`);
 
     const response = await axios.post(SEVEN_IO_API_URL, smsData, {
       headers: {

@@ -1,10 +1,10 @@
 /**
  * Validate and format German mobile phone numbers
- * @param {string} phoneNumber - Raw phone number input
+ * @param {string|number} phoneNumber - Raw phone number input
  * @returns {Object} - Validation result with formatted number
  */
 function validatePhoneNumber(phoneNumber) {
-  if (!phoneNumber || typeof phoneNumber !== 'string') {
+  if (phoneNumber === undefined || phoneNumber === null || phoneNumber === '') {
     return {
       isValid: false,
       message: 'Phone number is required'
@@ -12,7 +12,7 @@ function validatePhoneNumber(phoneNumber) {
   }
 
   // Remove all non-digit characters except +
-  let cleaned = phoneNumber.replace(/[^\d+]/g, '');
+  let cleaned = String(phoneNumber).replace(/[^\d+]/g, '');
   
   // Handle different German mobile number formats
   if (cleaned.startsWith('+49')) {
